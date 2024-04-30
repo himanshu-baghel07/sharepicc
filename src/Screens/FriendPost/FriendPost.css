@@ -1,0 +1,10 @@
+.friend_post_cont {
+  flex-direction: column;
+  width: 60%;
+  height: 90vh;
+  margin-left: 20%;
+  overflow-y: auto;
+}
+.top_mid_bar {
+  cursor: pointer;
+}
