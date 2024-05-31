@@ -4,34 +4,21 @@ import loaderBtn from "../../assets/loaderBtn.svg";
 import loaderYellow from "../../assets/loaderYellow.svg";
 import menuOn from "../../assets/menuOn.svg";
 import menuOff from "../../assets/menuOff.svg";
+import FlipIcon from "../../assets/Flip.svg";
 import copyIcon from "../../assets/Copy.svg";
-import closeIcon from "../../assets/CloseIcon.svg";
-import SocialLogo from "../../assets/Images/socialLogo.jpg";
-import ProfileBg from "../../assets/Images/bgImage.jpg";
 import Diam from "../../assets/Images/Diam.png";
-import { create } from "ipfs-http-client";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { minidenticon } from "minidenticons";
-import ReactSlider from "react-slider";
-
-import {
-  Keypair,
-  BASE_FEE,
-  TransactionBuilder,
-  Operation,
-  Asset,
-} from "@stellar/stellar-sdk";
-
+import sharePicLogo from "../../assets/sharePicLogo.svg";
 import * as StellarSdk from "@stellar/stellar-sdk";
-
 import { Horizon } from "@stellar/stellar-sdk";
-
 import { FaCloudUploadAlt, FaTimes } from "react-icons/fa";
 import { FaHeart, FaKey, FaUpload, FaWallet } from "react-icons/fa6";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import { URI } from "../CommonComponents/Index";
+import { QRCode } from "react-qrcode-logo";
 
 export const MinidenticonImg = ({
   username,
@@ -54,12 +41,8 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
   const [infoData, setInfoData] = useState([]);
   const [description, setDescription] = useState("");
   const [btnLoader, setBtnLoader] = useState(false);
-  // const [imgModal, setImgModal] = useState(false);
   const [myFeedData, setMyFeedData] = useState([]);
   const [walletBal, setWalletBal] = useState("");
-  // const [publicK, setPublicK] = useState("");
-  const [cardModal, setCardModal] = useState(false);
-  // const [modalCond, setModalCond] = useState(false);
   const [loader, setLoader] = useState(new Array(infoData.length).fill(false));
   const [setType, setSetType] = useState(null);
   const [navbarToggle, setNavbarToggle] = useState(false);
@@ -67,12 +50,15 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
   const [sortingCriteria, setSortingCriteria] = useState("recent");
   const [isValid, setIsValid] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const [showQR, setShowQR] = useState(false);
 
   const location = useLocation();
 
   const navigateTo = useNavigate();
 
   const { publicK } = location.state;
+
+  console.log("Pub", publicK.length);
 
   const notify = () =>
     toast.success("Upload Successfully!", {
@@ -89,6 +75,21 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
       toastId: "liked",
     });
 
+  const accountNotActive = () =>
+    toast.warning("Connected wallet is not active!!", {
+      toastId: "accountNotActive",
+    });
+
+  const insufficientBal = () =>
+    toast.warning("Insufficient wallet balance", {
+      toastId: "insufficientBal",
+    });
+
+  const failedLike = (msg) =>
+    toast.warning(msg, {
+      toastId: "failedLike",
+    });
+
   const responseError = () =>
     toast.error("Response Error!", {
       toastId: "resErr",
@@ -99,11 +100,13 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
       toastId: "copy_address",
     });
 
-  const client = create({
-    host: "54.129.7.190",
-    port: 4000,
-    protocol: "http",
-  });
+  const unsupportFile = () =>
+    toast.error(
+      " Unsupported file type. Please select an image, gif, video, or audio file.",
+      {
+        toastId: "unsupportFile",
+      }
+    );
 
   const copyData = (value) => {
     navigator.clipboard.writeText(value).catch(() => {});
@@ -117,25 +120,37 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
 
   const handleFileSelect = (event) => {
     const selectedFile = event.target.files[0];
-    setFile(selectedFile);
-    setFileName(selectedFile.name);
+    if (!selectedFile) return;
+
+    const fileName = selectedFile.name;
     const fileType = selectedFile.type;
-    const fileExtension = selectedFile.name.split(".").pop().toLowerCase();
-    if (
-      fileType.startsWith("image/") ||
-      ["jpg", "jpeg", "png", "gif"].includes(fileExtension)
-    ) {
+    const fileExtension = fileName.split(".").pop().toLowerCase();
+
+    setFile(selectedFile);
+    setFileName(fileName);
+
+    const imageExtensions = ["jpg", "jpeg", "png", "gif"];
+    const videoExtensions = ["mp4", "mov", "avi", "mkv"];
+    const audioExtensions = ["mp3", "wav", "ogg", "aac", "flac"];
+
+    const isImage =
+      fileType.startsWith("image/") && imageExtensions.includes(fileExtension);
+    const isVideo =
+      fileType.startsWith("video/") && videoExtensions.includes(fileExtension);
+    const isAudio =
+      fileType.startsWith("audio/") && audioExtensions.includes(fileExtension);
+
+    if (isImage) {
       setSetType(1);
-    } else if (
-      fileType.startsWith("video/") ||
-      ["mp4", "mov", "avi", "mkv"].includes(fileExtension)
-    ) {
+    } else if (isVideo) {
       setSetType(2);
-    } else if (
-      fileType.startsWith("audio/") ||
-      ["mp3"].includes(fileExtension)
-    ) {
+    } else if (isAudio) {
       setSetType(3);
+    } else {
+      setFile(null);
+      setFileName("");
+      setSetType(null);
+      unsupportFile();
     }
   };
 
@@ -178,55 +193,52 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
     }
   };
 
-  const handleLike = async (id, destAddress, index) => {
+  const handleLike = async (id, destAddress, index, amt) => {
     const updatedLoaders = [...loader];
     updatedLoaders[index] = true;
     setLoader(updatedLoaders);
     const server = new Horizon.Server("https://diamtestnet.diamcircle.io");
-    // const sender_secret_key = privateK;
-    // const receiverAccountId = destAddress;
-    // const senderKeypair = StellarSdk.Keypair.fromSecret(sender_secret_key);
-    // const senderPublicKey = senderKeypair.publicKey();
-    const sourceAccount = await server.loadAccount(publicK);
+
+    try {
+      var sourceAccount = await server.loadAccount(publicK);
+    } catch (ERROR) {
+      if (ERROR.toString() === "Error: Request failed with status code 404") {
+        setLoader(new Array(infoData.length).fill(false));
+        accountNotActive();
+      }
+      return;
+    }
+    if (parseFloat(sourceAccount.balances[0].balance) < parseFloat(amt)) {
+      setLoader(new Array(infoData.length).fill(false));
+      insufficientBal();
+      return;
+    }
+
     const transaction = new StellarSdk.TransactionBuilder(sourceAccount, {
       fee: StellarSdk.BASE_FEE,
-      networkPassphrase: "Diamante Testnet",
+      networkPassphrase: "Diamante Testnet", //"Diamante MainNet; SEP 2022",
     })
       .addOperation(
         StellarSdk.Operation.payment({
           destination: destAddress,
           asset: StellarSdk.Asset.native(),
-          amount: "0.5",
+          amount: amt,
         })
       )
       .setTimeout(0)
       .build();
     const xdr = transaction.toXDR("base64");
 
-    const resp = await window.diam.sign(xdr);
+    const resp = await window.diam.sign(xdr, true, "Diamante Testnet");
 
-    console.log(resp, "HEREEEEEEEEEEE");
-    if (resp.response.successful) {
-      console.log("Res>>>>>", resp.response.successful);
+    if (resp.response.status === 200) {
       handleLikeCount(id);
       setLoader(new Array(infoData.length).fill(false));
       getBalance(publicK);
+    } else {
+      setLoader(new Array(infoData.length).fill(false));
+      failedLike(resp.response.message.message);
     }
-
-    // transaction.sign(StellarSdk.Keypair.fromSecret(sender_secret_key));
-    // server
-    //   .submitTransaction(transaction)
-    //   .then((result) => {
-    //     getBalance(publicK);
-    //     handleLikeCount(id);
-    //     const updatedLoader = [...loader];
-    //     updatedLoader[index] = false;
-    //     setLoader(updatedLoader);
-    //   })
-    //   .catch((error) => {
-    //     setLoader(false);
-    //     errorMsg();
-    //   });
   };
 
   const getData = async () => {
@@ -234,7 +246,7 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
       .post(URI.my_feeds)
       .then(async (res) => {
         await axios
-          .get("http://54.219.7.190:8080/ipfs/" + res.data.CID)
+          .get("https://browseipfs.diamcircle.io/ipfs/" + res.data.CID)
           .then((res) => {
             if (res.status === 200) {
               setInfoData(res.data.reverse());
@@ -275,6 +287,7 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
       .then((response) => {
         if (response.status === 200) {
           if (response.data.is_liked) {
+            console.log("Liked or not", response.data.is_liked);
             alreadyLiked();
           } else {
             getData();
@@ -312,8 +325,13 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
   const getBalance = async (pubKey) => {
     let balance = null;
     try {
-      const server = new Horizon.Server("https://diamtestnet.diamcircle.io/");
-      const account = await server.accounts().accountId(pubKey).call();
+      try {
+        var server = new Horizon.Server("https://diamtestnet.diamcircle.io/");
+        var account = await server.accounts().accountId(pubKey).call();
+      } catch (error) {
+        setWalletBal("Wallet not active !");
+        return;
+      }
       if (
         account &&
         Array.isArray(account.balances) &&
@@ -323,10 +341,10 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
           account.balances[account.balances.length - 1].balance
         ).toFixed(3);
       }
-      setWalletBal(balance);
+      setWalletBal(balance + "DIAM");
     } catch (e) {
       balance = 0;
-      setWalletBal(balance);
+      setWalletBal(balance + "DIAM");
     }
   };
   const fetchDataAndHandleError = async () => {
@@ -337,14 +355,7 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("wallet_Details");
-    const value = localStorage.getItem("wallet_Details");
-    console.log("Value", value);
-    if (value !== "") {
-      navigateTo("/");
-    } else {
-      errorMsg();
-    }
+    navigateTo("/");
   };
 
   const handleFilter = (criteria) => {
@@ -367,6 +378,7 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
       .post(URI.my_uploads, payload)
       .then((response) => {
         if (response.status === 200) {
+          setSearchValue("");
           navigateTo("/friendpost", {
             state: {
               friend_data: response.data,
@@ -388,10 +400,8 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
     const valid = StellarSdk.StrKey.isValidEd25519PublicKey(value_);
     setIsValid(valid);
     setSearchValue(value_);
-    // setPvtKeyVal(value_);
   };
 
-  // Function to render data based on sorting criteria
   const renderData = () => {
     const sortedData = sortData(infoData, sortingCriteria);
     return sortedData.map((dd, index) => (
@@ -404,7 +414,11 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
           />
 
           <div>
-            {dd.user_address.slice(0, 5) + "....." + dd.user_address.slice(-5)}{" "}
+            <span className="pbl_address">
+              {dd.user_address.slice(0, 5) +
+                "....." +
+                dd.user_address.slice(-5)}
+            </span>
             <abbr
               title="Copy"
               onClick={() => {
@@ -439,8 +453,6 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
               <img
                 src={dd.image_hash}
                 alt=""
-                // height="auto"
-                // width="100%"
                 className="upload_img_style"
                 style={{ objectFit: "cover" }}
               />
@@ -453,16 +465,6 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
               </video>
             )}
             {dd.type === 3 && (
-              // <audio
-              //   src={dd.image_hash}
-              //   controls
-              //   // className="upload_img_style"
-              //   autoPlay={false}
-              //   onPlay={() => setIsPlaying(true)}
-              //   onPause={() => setIsPlaying(false)}
-              //   // style={{ width: "80%" }}
-              // />
-
               <audio
                 src={dd.image_hash}
                 controls
@@ -480,58 +482,69 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
             className="normal_like"
             onClick={() => handleLikeCount(dd.id)}
           >
-            {/* {loader[index] ? (
-              <img src={loaderYellow} alt="" height="20" width="auto" />
-            ) : (
-              <>
-                <FaHeart style={{ color: dd.like_count && "red" }} />
-                &nbsp;{dd.like_count}
-              </>
-            )} */}
             <FaHeart style={{ color: dd.like_count && "red" }} />
             &nbsp;{dd.like_count}
           </div>
-          {/* <div
-            style={{
-              position: "absolute",
-              width: "100px",
-              top: "-40%",
-              left: "55%",
-            }}
-          >
-            <ReactSlider
-              className="horizontal-slider"
-              thumbClassName="example-thumb"
-              trackClassName="example-track"
-              min={0}
-              max={100}
-              defaultValue={50} // Set the default value if needed
-              renderThumb={(props, state) => (
-                <div {...props}>{state.valueNow}</div>
-              )}
-            />
-          </div> */}
 
-          <div
-            className="normal_like"
-            onClick={() => handleLike(dd.id, dd.user_address, index)}
-          >
+          <div className="normal_like special_like">
             {loader[index] ? (
               <img src={loaderYellow} alt="" height="20" width="auto" />
             ) : (
-              <>
-                &nbsp;
-                <img src={Diam} alt="" className="diam_coin" /> &nbsp;
-              </>
+              <div className="spl_like">
+                <div
+                  className="like_amt"
+                  onClick={() => {
+                    handleLike(dd.id, dd.user_address, index, "0.5");
+                  }}
+                >
+                  <h3>0.5</h3>
+                  <img src={Diam} alt="" className="diam_coin" /> &nbsp;
+                </div>
+
+                <div
+                  className="like_amt"
+                  onClick={() => {
+                    handleLike(dd.id, dd.user_address, index, "5");
+                  }}
+                >
+                  <h3>5</h3>
+                  <img src={Diam} alt="" className="diam_coin" /> &nbsp;
+                </div>
+                <div
+                  className="like_amt"
+                  onClick={() => {
+                    handleLike(dd.id, dd.user_address, index, "10");
+                  }}
+                >
+                  &nbsp; 10
+                  <img src={Diam} alt="" className="diam_coin" /> &nbsp;
+                </div>
+                <div
+                  className="like_amt"
+                  onClick={() => {
+                    handleLike(dd.id, dd.user_address, index, "50");
+                  }}
+                >
+                  &nbsp; 50
+                  <img src={Diam} alt="" className="diam_coin" /> &nbsp;
+                </div>
+              </div>
             )}
           </div>
         </div>
       </div>
     ));
   };
+  const handleQR = () => {
+    setShowQR(!showQR);
+  };
 
   useEffect(() => {
     getData();
+    setTimeout(() => {
+      getData();
+    }, 10000);
+
     fetchDataAndHandleError();
   }, []);
 
@@ -573,22 +586,32 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
       )}
       <div className={`home_top_sec ${imgModal && "blurCls"}`}>
         <div className="top_mid_bar">
-          <img src={SocialLogo} alt="" height="40" width="auto" />
-          SharePic
+          <img src={sharePicLogo} alt="" className="app_logo" />
         </div>
         <div className="search_cont">
           <input
             className="input_search"
-            placeholder="Search user by public key"
-            value={searchValue}
+            placeholder="Search Public Address"
+            value={searchValue.replace(/[^a-zA-Z0-9]/g, "")}
             style={{
               border: "1px solid",
               borderColor:
-                searchValue === "" ? "#E8E8E8" : isValid ? "#06bf0f" : "red",
+                searchValue.trim() === ""
+                  ? "#E8E8E8"
+                  : searchValue.trim().length >= 3 && !isValid
+                  ? "red"
+                  : isValid
+                  ? "#06bf0f"
+                  : "#E8E8E8",
             }}
             onChange={(e) => checkSecretKey(e)}
+            maxLength={56}
           />
-          <button className="search_btn" onClick={() => handleSearch()}>
+          <button
+            disabled={!isValid}
+            className={`search_btn ${!isValid && "search_btn_dbl"}`}
+            onClick={() => handleSearch()}
+          >
             Search
           </button>
         </div>
@@ -629,9 +652,13 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
                   </div>
                   <div className="nav_public_key">
                     <FaWallet style={{ fontSize: "" }} /> &nbsp;
-                    <span>Balance: {walletBal}&nbsp;DIAM</span>
+                    <span>Balance: {walletBal}</span>
                   </div>
-                  <div className="nav_public_key logout" onClick={handleLogout}>
+                  <div
+                    className="nav_public_key logout"
+                    onClick={handleLogout}
+                    style={{ cursor: "pointer" }}
+                  >
                     Logout
                   </div>
                 </div>
@@ -653,15 +680,40 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
       <div className={`home_main_sec ${imgModal && "blurCls"}`}>
         <div className="left_sec">
           <div className="profile_info_sec">
-            {/* <img src={ProfileBg} alt="" className="image_sec" /> */}
+            {showQR ? (
+              <QRCode
+                size={120}
+                value={publicK}
+                eyeRadius={10}
+                eyeColor="#061325"
+                qrStyle="dots"
+                viewBox={`0 0 256 256`}
+                logoWidth="70"
+              />
+            ) : (
+              <MinidenticonImg
+                className="dp_picture"
+                username={publicK}
+                saturation="90"
+                style={{ borderRadius: "20px", cursor: "pointer" }}
+              />
+            )}
 
-            <MinidenticonImg
-              className="dp_picture"
-              username={publicK}
-              saturation="90"
-              style={{ borderRadius: "20px" }}
-            />
-            <h3 className="user_name">Public Key</h3>
+            <h3 className="user_name">
+              Public Key{" "}
+              <img
+                src={FlipIcon}
+                height="15"
+                width="auto"
+                style={{ cursor: "pointer" }}
+                onClick={() => {
+                  handleQR();
+                  setTimeout(() => {
+                    setShowQR(false);
+                  }, 10000);
+                }}
+              />
+            </h3>
             <div className="profile_edit">
               <span>
                 <FaKey style={{ fontSize: "14px" }} />{" "}
@@ -684,57 +736,13 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
               </abbr>
             </div>
             <div className="wallet_bal">
-              <FaWallet style={{ fontSize: "" }} />
-              <span>Balance: {walletBal}&nbsp;DIAM</span>
+              <FaWallet />
+              <span>Balance: {walletBal}</span>
             </div>
           </div>
-          {/* <div className="nav_public_key logout" onClick={handleLogout}>
+
+          <div className="nav_public_key logout" onClick={handleLogout}>
             Logout
-          </div> */}
-          <div className="top_performer">
-            <div className="top_performer_haed">Top Creators🥳</div>
-            <div className="tip_performer_index index_style">
-              <div className="first">Rank</div>
-              <div className="second">Public address</div>
-              <div className="third">Reward</div>
-            </div>
-            <div className="tip_performer_index">
-              <div className="first">1</div>
-              <div className="second">GBCJZIT....FQSLF5D</div>
-              <div className="third">
-                <img src={Diam} alt="" height="15" width="15" /> 5000
-              </div>
-            </div>
-            <div className="tip_performer_index">
-              <div className="first">2</div>
-              <div className="second">GCH2ZQ7....76C3XLB</div>
-              <div className="third">
-                <img src={Diam} alt="" height="15" width="15" /> 3000
-              </div>
-            </div>
-            <div className="tip_performer_index">
-              <div className="first">3</div>
-              <div className="second">GACBUPB....S5AQRYF</div>
-              <div className="third">
-                <img src={Diam} alt="" height="15" width="15" />
-                2000
-              </div>
-            </div>
-            <div className="tip_performer_index">
-              <div className="first">4</div>
-              <div className="second">GBHU24B....5VOLEZG</div>
-              <div className="third">
-                <img src={Diam} alt="" height="15" width="15" /> 1000
-              </div>
-            </div>
-            <div className="tip_performer_index">
-              <div className="first">5</div>
-              <div className="second">GBJGVVV....4VXWBOK</div>
-              <div className="third">
-                <img src={Diam} alt="" height="15" width="15" />
-                700{" "}
-              </div>
-            </div>
           </div>
         </div>
         <div className="mid_sec">
@@ -750,7 +758,7 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
                 className="post_desc"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                maxLength={500}
+                maxLength={7000}
               />
 
               <div className="upload_btn">
@@ -786,9 +794,7 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
                 )}
 
                 <button
-                  className={`publish_image ${
-                    !description && !fileName && "disable_btn"
-                  }`}
+                  className={`publish_image`}
                   disabled={!description && !fileName}
                   onClick={() => handleFileUpload()}
                 >
@@ -829,90 +835,6 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
             </button>
           </div>
           {renderData()}
-          {/* {renderData.length !== 0 ? (
-            renderData.map((dd, index) => (
-              <div className="feed_sec" key={index}>
-                <div className="top_feed">
-                  <MinidenticonImg
-                    username={dd.user_address}
-                    saturation="90"
-                    height="50px"
-                    width="50px"
-                    style={{ borderRadius: "20px", border: "1px solid #fff" }}
-                  />
-
-                  <div>
-                    {dd.user_address.slice(0, 5) +
-                      "....." +
-                      dd.user_address.slice(-5)}{" "}
-                    <abbr
-                      title="Copy"
-                      onClick={() => {
-                        copyData(dd.user_address);
-                        copyMsg();
-                      }}
-                      style={{ cursor: "pointer" }}
-                    >
-                      <img
-                        src={copyIcon}
-                        style={{ marginLeft: "3px" }}
-                        alt="Copy icon"
-                        height="13"
-                        width="auto"
-                      />
-                    </abbr>
-                    <br />
-                    <span className="time_style">
-                      {new Date(dd.time).toDateString()} &nbsp;
-                      {new Date(dd.time).toLocaleTimeString([], {
-                        hour: "numeric",
-                        minute: "2-digit",
-                        hour12: true,
-                      })}
-                    </span>
-                  </div>
-                </div>
-                <div className="upload_post_style">{dd.description}</div>
-                {dd.image_hash && (
-                  <div className="upload_img_cont">
-                    {dd.type === 1 && (
-                      <img
-                        src={dd.image_hash}
-                        alt=""
-                        height="250"
-                        width="auto"
-                        className="upload_img_style"
-                        style={{ objectFit: "center" }}
-                      />
-                    )}
-
-                    {dd.type === 2 && (
-                      <video controls style={{ width: "90%" }}>
-                        <source src={dd.image_hash} type="video/mp4" />
-                        Your browser does not support the video tag.
-                      </video>
-                    )}
-                  </div>
-                )}
-
-                <div
-                  className="like_btn"
-                  onClick={() => handleLike(dd.id, dd.user_address, index)}
-                >
-                  {loader[index] ? (
-                    <img src={loaderYellow} alt="" height="20" width="auto" />
-                  ) : (
-                    <>
-                      <FaHeart style={{ color: dd.like_count && "red" }} />
-                      &nbsp;{dd.like_count}
-                    </>
-                  )}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div>Nothing to show</div>
-          )} */}
         </div>
         <div className="right_sec">
           <h2 className="my_uploads_text">My Uploads</h2>
@@ -977,6 +899,7 @@ const Homescreen = ({ imgModal, setImgModal, modalCond, setModalCond }) => {
         pauseOnFocusLoss
         draggable
         pauseOnHover
+        fontSize={10}
       />
     </div>
   );

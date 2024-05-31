@@ -1,14 +1,14 @@
 .onboard_cont {
   width: 100%;
-  height: 98vh;
+  height: 100vh;
   overflow-y: hidden;
-  background-image: url("/src/assets/Images/bgImage.jpg");
+  /* background-image: url("/src/assets/Images/bgImage.jpg"); */
   background-size: cover;
   display: flex;
   flex-direction: column;
 }
 .topbar {
-  height: 7vh;
+  height: 9vh;
   width: 100%;
   box-sizing: border-box;
   display: flex;
@@ -16,13 +16,44 @@
   justify-content: space-between;
   align-items: center;
   padding: 0 20px;
-  box-shadow: 1px 1px 89px 1px #00b1fd;
+  box-shadow: 1px 1px 5px 1px #00b1fd;
 }
 .topbar_cont {
   display: flex;
   width: 50%;
   gap: 10px;
   align-items: center;
+}
+.onboard_main {
+  height: 90vh;
+  width: 100%;
+  display: flex;
+}
+.left_onboard {
+  width: 60%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+
+  /* background-size: cover;
+  background-image: url("/src/assets/bannerOnboard.png"); */
+}
+.banner_image {
+  height: 40vh;
+  width: auto;
+}
+.share_text {
+  font-size: 4.5rem;
+  color: #00b1fd;
+}
+.right_onboard {
+  width: 40%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 5%;
 }
 .second_cont {
   justify-content: flex-end;
@@ -34,16 +65,19 @@
   height: 90vh;
 }
 .create_btn {
-  height: 30px;
-  width: 100px;
-
+  height: 7vh;
+  width: 40%;
   background-color: #00b1fd;
-  border: 0.4px solid #cfcfcf;
+  border: none;
+  /* border: 0.4px solid #cfcfcf; */
   color: #2a2929;
-
-  font-size: 13px;
+  font-size: 1rem;
   font-weight: 600;
   border-radius: 7px;
+  cursor: pointer;
+}
+.create_btn:hover {
+  background-color: #0394d2;
 }
 .login_cont {
   height: 45%;

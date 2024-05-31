@@ -12,12 +12,7 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route
-          path="/"
-          element={
-            <Onboarding setImgModal={setImgModal} setModalCond={setModalCond} />
-          }
-        />
+        <Route path="/" element={<Onboarding />} />
         <Route
           path="/home"
           element={
